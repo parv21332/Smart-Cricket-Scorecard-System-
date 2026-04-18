@@ -200,7 +200,6 @@
     let pointTable = {};
     let currentMatch = null;
     let matchActive = false;
-    let matchEnded = false;
     let teamAPlayers = ['Rohit Sharma', 'Virat Kohli', 'Shreyas Iyer', 'KL Rahul', 'Hardik Pandya', 'Ravindra Jadeja', 'Jasprit Bumrah', 'Mohammed Shami', 'Mohammed Siraj', 'Kuldeep Yadav', 'Washington Sundar'];
     let teamBPlayers = ['David Warner', 'Travis Head', 'Mitchell Marsh', 'Glenn Maxwell', 'Marcus Stoinis', 'Alex Carey', 'Pat Cummins', 'Mitchell Starc', 'Josh Hazlewood', 'Adam Zampa', 'Nathan Ellis'];
 
@@ -217,6 +216,7 @@
         getOvers() { let overs = Math.floor(this.legalBalls / 6); let balls = this.legalBalls % 6; return `${overs}.${balls}`; }
         getEcon() { let oversBowled = this.legalBalls / 6; return oversBowled === 0 ? 0 : (this.runs / oversBowled).toFixed(2); }
         clone() { let b = new Bowler(this.name); b.legalBalls = this.legalBalls; b.runs = this.runs; b.wickets = this.wickets; return b; }
+        addStats(bowler) { this.legalBalls += bowler.legalBalls; this.runs += bowler.runs; this.wickets += bowler.wickets; }
     }
 
     class Match {
@@ -230,14 +230,14 @@
             this.bowlingTeamName = batFirst === 'A' ? teamBName : teamAName;
             this.runs = 0; this.wickets = 0; this.extras = 0; this.wides = 0; this.noBalls = 0;
             this.legalBalls = 0; this.currentOverBalls = 0; this.isFreeHit = false;
-            this.striker = 0; this.nonStriker = 1; this.currentBowler = null; this.bowlers = []; this.lastBowler = null;
+            this.striker = 0; this.nonStriker = 1; this.currentBowler = null; 
+            this.bowlerStatsMap = new Map(); // Key: bowler name, Value: Bowler object for aggregation
+            this.lastBowler = null;
             this.overComplete = false; this.currentOverList = []; this.overHistory = [];
             this.isFirstInnings = true; this.target = null; this.matchEnded = false;
             this.battingTeam[0].isOut = false; this.battingTeam[1].isOut = false;
             this.firstInningsSnapshot = null;
             this.secondInningsSnapshot = null;
-            this.matchWinner = null;
-            this.winMargin = null;
         }
         
         getStriker() { return this.battingTeam[this.striker]; }
@@ -256,12 +256,31 @@
         getNextBatsman() { for (let i = 0; i < this.battingTeam.length; i++) if (!this.battingTeam[i].isOut && i !== this.striker && i !== this.nonStriker) return i; return -1; }
         rotateStrikeIfNeeded(runs) { if (runs % 2 === 1) { [this.striker, this.nonStriker] = [this.nonStriker, this.striker]; } }
         
+        updateBowlerStats(bowler) {
+            if (!this.bowlerStatsMap.has(bowler.name)) {
+                this.bowlerStatsMap.set(bowler.name, new Bowler(bowler.name));
+            }
+            let existingBowler = this.bowlerStatsMap.get(bowler.name);
+            existingBowler.legalBalls = bowler.legalBalls;
+            existingBowler.runs = bowler.runs;
+            existingBowler.wickets = bowler.wickets;
+        }
+        
+        getAggregatedBowlers() {
+            return Array.from(this.bowlerStatsMap.values());
+        }
+        
         addRuns(runs) {
             if (this.overComplete) { alert("Over completed! Change bowler first!"); return false; }
             if (this.matchEnded) { alert("Match has ended!"); return false; }
             let striker = this.getStriker(); if (!striker || striker.isOut) return false;
             striker.runs += runs; striker.balls++; if (runs === 4) striker.fours++; if (runs === 6) striker.sixes++;
-            this.runs += runs; if (this.currentBowler) { this.currentBowler.runs += runs; this.currentBowler.legalBalls++; }
+            this.runs += runs; 
+            if (this.currentBowler) { 
+                this.currentBowler.runs += runs; 
+                this.currentBowler.legalBalls++; 
+                this.updateBowlerStats(this.currentBowler);
+            }
             this.currentOverList.push({ type: 'run', value: runs }); this.currentOverBalls++; this.legalBalls++;
             this.rotateStrikeIfNeeded(runs);
             this.isFreeHit = false;
@@ -273,7 +292,10 @@
             if (this.overComplete) { alert("Over completed! Change bowler first!"); return false; }
             if (this.matchEnded) { alert("Match has ended!"); return false; }
             this.extras++; this.wides++; this.runs++;
-            if (this.currentBowler) this.currentBowler.runs++;
+            if (this.currentBowler) {
+                this.currentBowler.runs++;
+                this.updateBowlerStats(this.currentBowler);
+            }
             this.currentOverList.push({ type: 'wide', value: 1 }); 
             return true;
         }
@@ -283,8 +305,16 @@
             if (this.matchEnded) { alert("Match has ended!"); return false; }
             let totalRuns = 1 + runsScored; this.extras++; this.noBalls++; this.runs += totalRuns;
             let striker = this.getStriker(); 
-            if (striker && runsScored > 0) { striker.runs += runsScored; striker.balls++; if (runsScored === 4) striker.fours++; if (runsScored === 6) striker.sixes++; }
-            if (this.currentBowler) this.currentBowler.runs += totalRuns;
+            if (striker && runsScored > 0) { 
+                striker.runs += runsScored; 
+                striker.balls++; 
+                if (runsScored === 4) striker.fours++; 
+                if (runsScored === 6) striker.sixes++; 
+            }
+            if (this.currentBowler) {
+                this.currentBowler.runs += totalRuns;
+                this.updateBowlerStats(this.currentBowler);
+            }
             this.currentOverList.push({ type: 'noball', value: runsScored }); 
             if (runsScored % 2 === 1) this.rotateStrikeIfNeeded(runsScored);
             this.isFreeHit = true; 
@@ -296,26 +326,48 @@
             if (this.matchEnded) { alert("Match has ended!"); return false; }
             if (this.isFreeHit) { alert("FREE HIT! Cannot take wicket!"); return false; }
             let striker = this.getStriker(); if (!striker || striker.isOut) return false;
-            striker.isOut = true; this.wickets++;
-            if (this.currentBowler) { this.currentBowler.wickets++; this.currentBowler.legalBalls++; }
-            this.currentOverList.push({ type: 'wicket', value: 'W' }); this.currentOverBalls++; this.legalBalls++;
-            let nextIdx = this.getNextBatsman(); if (nextIdx !== -1) this.striker = nextIdx;
+            
+            // CRITICAL FIX: Wicket ball SHOULD count as ball faced by batsman
+            striker.balls++;  // Batsman faced this delivery
+            striker.isOut = true; 
+            this.wickets++;
+            
+            if (this.currentBowler) { 
+                this.currentBowler.wickets++; 
+                this.currentBowler.legalBalls++; 
+                this.updateBowlerStats(this.currentBowler);
+            }
+            this.currentOverList.push({ type: 'wicket', value: 'W' }); 
+            this.currentOverBalls++; 
+            this.legalBalls++;
+            let nextIdx = this.getNextBatsman(); 
+            if (nextIdx !== -1) this.striker = nextIdx;
             if (this.currentOverBalls === 6) this.completeOver(); 
             return true;
         }
         
         completeOver() {
             this.overHistory.push([...this.currentOverList]);
-            if (this.currentBowler) { this.bowlers.push(this.currentBowler); this.lastBowler = this.currentBowler.name; }
-            this.currentOverBalls = 0; this.currentOverList = []; this.overComplete = true; this.isFreeHit = false;
+            if (this.currentBowler) { 
+                this.lastBowler = this.currentBowler.name; 
+            }
+            this.currentOverBalls = 0; 
+            this.currentOverList = []; 
+            this.overComplete = true; 
+            this.isFreeHit = false;
             [this.striker, this.nonStriker] = [this.nonStriker, this.striker];
         }
         
         setBowler(bowlerName) {
             if (!this.overComplete && this.legalBalls > 0) { alert("Complete current over first!"); return false; }
             if (this.lastBowler === bowlerName && this.legalBalls > 0) { alert("Same bowler cannot bowl consecutive overs!"); return false; }
-            let bowler = this.bowlers.find(b => b.name === bowlerName); if (!bowler) bowler = new Bowler(bowlerName);
-            this.currentBowler = bowler; this.overComplete = false; this.currentOverList = []; this.currentOverBalls = 0; 
+            let bowler = this.bowlerStatsMap.get(bowlerName);
+            if (!bowler) bowler = new Bowler(bowlerName);
+            else bowler = bowler.clone();
+            this.currentBowler = bowler; 
+            this.overComplete = false; 
+            this.currentOverList = []; 
+            this.currentOverBalls = 0; 
             return true;
         }
         
@@ -344,7 +396,8 @@
                 battingTeamName: this.battingTeamName,
                 bowlingTeamName: this.bowlingTeamName,
                 runs: this.runs, wickets: this.wickets, overs: this.formatOvers(),
-                bowlers: this.bowlers.map(b => b.clone()), extras: this.extras, wides: this.wides, noBalls: this.noBalls
+                bowlers: this.getAggregatedBowlers(),
+                extras: this.extras, wides: this.wides, noBalls: this.noBalls
             };
         }
         
@@ -355,7 +408,8 @@
                 battingTeamName: this.battingTeamName,
                 bowlingTeamName: this.bowlingTeamName,
                 runs: this.runs, wickets: this.wickets, overs: this.formatOvers(),
-                bowlers: this.bowlers.map(b => b.clone()), extras: this.extras, wides: this.wides, noBalls: this.noBalls, target: this.target
+                bowlers: this.getAggregatedBowlers(),
+                extras: this.extras, wides: this.wides, noBalls: this.noBalls, target: this.target
             };
         }
     }
@@ -396,7 +450,7 @@
         }
         
         if (match.secondInningsSnapshot || (!match.isFirstInnings && !match.matchEnded)) {
-            let ss = match.secondInningsSnapshot || { battingTeam: match.battingTeam, battingTeamName: match.battingTeamName, runs: match.runs, wickets: match.wickets, overs: match.formatOvers(), bowlers: match.bowlers };
+            let ss = match.secondInningsSnapshot || { battingTeam: match.battingTeam, battingTeamName: match.battingTeamName, runs: match.runs, wickets: match.wickets, overs: match.formatOvers(), bowlers: match.getAggregatedBowlers() };
             html += `<div class="scorecard-section"><h3>🏏 ${ss.battingTeamName} - 2nd INNINGS</h3><p><strong>Score:</strong> ${ss.runs}/${ss.wickets} (${ss.overs} overs) | RR: ${(ss.runs/parseFloat(ss.overs||1)).toFixed(2)}${match.target ? ` | Target: ${match.target}` : ''}</p><table style="width:100%"><thead><tr><th>Batsman</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr></thead><tbody>${ss.battingTeam.map(p => `<tr><td>${p.name}${p.isOut ? ' †' : ' *'}</td><td><b>${p.runs}</b></td><td>${p.balls}</td><td>${p.fours}</td><td>${p.sixes}</td><td>${p.getSR()}</td></tr>`).join('')}</tbody></table><p><strong>Bowling:</strong></p><table style="width:100%"><thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th>Econ</th></tr></thead><tbody>${ss.bowlers.map(b => `<tr><td>${b.name}</td><td>${b.getOvers()}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.getEcon()}</td></tr>`).join('')}</tbody></table></div>`;
         }
         
@@ -433,7 +487,7 @@
         if (teamAPlayers.length < 2 || teamBPlayers.length < 2) { alert("Each team needs at least 2 players!"); return; }
         let overs = parseInt(document.getElementById('oversSelect').value), batFirst = document.getElementById('batFirst').value;
         currentMatch = new Match(teamAName, teamBName, teamAPlayers, teamBPlayers, overs, batFirst);
-        matchActive = true; matchEnded = false; closeModal(); updateUI(); enableButtons(true); showLiveMatch();
+        matchActive = true; closeModal(); updateUI(); enableButtons(true); showLiveMatch();
     }
 
     function updateUI() { 
@@ -500,9 +554,9 @@
         }
         document.getElementById('battingBody').innerHTML = battingHtml;
         
+        // Use aggregated bowlers to avoid duplicates
         let bowlingHtml = '';
-        let allBowlers = [...match.bowlers];
-        if (match.currentBowler && !allBowlers.find(b => b.name === match.currentBowler.name)) allBowlers.push(match.currentBowler);
+        let allBowlers = match.getAggregatedBowlers();
         for (let b of allBowlers) {
             let cls = (match.currentBowler && match.currentBowler.name === b.name) ? 'current-bowler' : '';
             bowlingHtml += `<tr class="${cls}"><td>${b.name}</td><td>${b.getOvers()}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.getEcon()}</td></tr>`;
@@ -531,7 +585,9 @@
             let tempName = currentMatch.battingTeamName; currentMatch.battingTeamName = currentMatch.bowlingTeamName; currentMatch.bowlingTeamName = tempName;
             currentMatch.runs = 0; currentMatch.wickets = 0; currentMatch.extras = 0; currentMatch.wides = 0; currentMatch.noBalls = 0;
             currentMatch.legalBalls = 0; currentMatch.currentOverBalls = 0; currentMatch.isFreeHit = false;
-            currentMatch.striker = 0; currentMatch.nonStriker = 1; currentMatch.currentBowler = null; currentMatch.bowlers = []; currentMatch.lastBowler = null;
+            currentMatch.striker = 0; currentMatch.nonStriker = 1; currentMatch.currentBowler = null; 
+            currentMatch.bowlerStatsMap.clear();
+            currentMatch.lastBowler = null;
             currentMatch.overComplete = false; currentMatch.currentOverList = []; currentMatch.matchEnded = false;
             currentMatch.battingTeam.forEach(p => { p.isOut = false; p.runs = 0; p.balls = 0; p.fours = 0; p.sixes = 0; });
             alert(`🏏 First Innings Complete!\n${currentMatch.bowlingTeamName}: ${currentMatch.target - 1}/${currentMatch.firstInningsSnapshot.wickets} (${currentMatch.firstInningsSnapshot.overs} overs)\nTarget: ${currentMatch.target}`);
@@ -547,7 +603,6 @@
         
         let result = currentMatch.getMatchResult();
         
-        // Update point table
         if (!pointTable[currentMatch.teamAName]) pointTable[currentMatch.teamAName] = { played:0, won:0, lost:0, nr:0, pts:0, runsScored:0, oversFaced:0, runsConceded:0, oversBowled:0, nrr:0 };
         if (!pointTable[currentMatch.teamBName]) pointTable[currentMatch.teamBName] = { played:0, won:0, lost:0, nr:0, pts:0, runsScored:0, oversFaced:0, runsConceded:0, oversBowled:0, nrr:0 };
         
