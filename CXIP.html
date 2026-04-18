@@ -11,6 +11,29 @@
         body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; padding: 12px; }
         .app-container { max-width: 1600px; margin: 0 auto; }
         
+        /* Designer Credit */
+        .designer-credit {
+            position: fixed;
+            top: 10px;
+            left: 15px;
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1001;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            backdrop-filter: blur(5px);
+            letter-spacing: 0.5px;
+            font-family: 'Segoe UI', cursive;
+        }
+        
+        .designer-credit i {
+            margin-right: 5px;
+            font-size: 11px;
+        }
+        
         .navbar {
             background: rgba(255,255,255,0.95);
             backdrop-filter: blur(10px);
@@ -110,10 +133,16 @@
             .ball { width: 35px; height: 35px; font-size: 10px; }
             .team-score { font-size: 32px; }
             .nav-btn { padding: 6px 10px; font-size: 10px; }
+            .designer-credit { font-size: 9px; padding: 4px 10px; top: 5px; left: 10px; }
         }
     </style>
 </head>
 <body>
+<!-- Designer Credit -->
+<div class="designer-credit">
+    <i class="fas fa-code"></i> Design by Parv
+</div>
+
 <div class="app-container">
     <div class="navbar">
         <div class="logo"><i class="fas fa-cricket"></i><span>CRICKET PRO</span></div>
@@ -231,7 +260,7 @@
             this.runs = 0; this.wickets = 0; this.extras = 0; this.wides = 0; this.noBalls = 0;
             this.legalBalls = 0; this.currentOverBalls = 0; this.isFreeHit = false;
             this.striker = 0; this.nonStriker = 1; this.currentBowler = null; 
-            this.bowlerStatsMap = new Map(); // Key: bowler name, Value: Bowler object for aggregation
+            this.bowlerStatsMap = new Map();
             this.lastBowler = null;
             this.overComplete = false; this.currentOverList = []; this.overHistory = [];
             this.isFirstInnings = true; this.target = null; this.matchEnded = false;
@@ -327,8 +356,7 @@
             if (this.isFreeHit) { alert("FREE HIT! Cannot take wicket!"); return false; }
             let striker = this.getStriker(); if (!striker || striker.isOut) return false;
             
-            // CRITICAL FIX: Wicket ball SHOULD count as ball faced by batsman
-            striker.balls++;  // Batsman faced this delivery
+            striker.balls++;
             striker.isOut = true; 
             this.wickets++;
             
@@ -446,7 +474,7 @@
         
         if (match.firstInningsSnapshot) {
             let fs = match.firstInningsSnapshot;
-            html += `<div class="scorecard-section"><h3>🏏 ${fs.battingTeamName} - 1st INNINGS</h3><p><strong>Score:</strong> ${fs.runs}/${fs.wickets} (${fs.overs} overs) | RR: ${(fs.runs/parseFloat(fs.overs||1)).toFixed(2)}</p><table style="width:100%"><thead><tr><th>Batsman</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr></thead><tbody>${fs.battingTeam.map(p => `<tr><td>${p.name}${p.isOut ? ' †' : ' *'}</td><td><b>${p.runs}</b></td><td>${p.balls}</td><td>${p.fours}</td><td>${p.sixes}</td><td>${p.getSR()}</td></tr>`).join('')}</tbody></table><p><strong>Bowling:</strong></p><table style="width:100%"><thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th>Econ</th></tr></thead><tbody>${fs.bowlers.map(b => `<tr><td>${b.name}</td><td>${b.getOvers()}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.getEcon()}</td></tr>`).join('')}</tbody></table></div>`;
+            html += `<div class="scorecard-section"><h3>🏏 ${fs.battingTeamName} - 1st INNINGS</h3><p><strong>Score:</strong> ${fs.runs}/${fs.wickets} (${fs.overs} overs) | RR: ${(fs.runs/parseFloat(fs.overs||1)).toFixed(2)}</p><table style="width:100%"><thead><tr><th>Batsman</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr></thead><tbody>${fs.battingTeam.map(p => `<tr><td>${p.name}${p.isOut ? ' †' : ' *'}</td><td><b>${p.runs}</b></td><td>${p.balls}</td><td>${p.fours}</td><td>${p.sixes}</td><td>${p.getSR()}</td></tr>`).join('')}</tbody></table><p><strong>Bowling:</strong></p><table style="width:100%"><thead><tr><th>Bowler</th><th>O</th><th>R</th><th>W</th><th>Econ</th></tr></thead><tbody>${fs.bowlers.map(b => `<tr><td>${b.name}</td><td>${b.getOvers()}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${b.getEcon()}</td></tr>`).join('')}</tbody></td></div>`;
         }
         
         if (match.secondInningsSnapshot || (!match.isFirstInnings && !match.matchEnded)) {
@@ -458,7 +486,7 @@
             let result = match.getMatchResult();
             if (result) html += `<div style="text-align:center;margin-top:15px;padding:10px;background:#10b981;color:white;border-radius:10px;"><strong>🏆 ${result} 🏆</strong></div>`;
         }
-        html += `<div style="text-align:center;margin-top:15px;font-size:10px;color:#666;">Generated on ${new Date().toLocaleString()}</div>`;
+        html += `<div style="text-align:center;margin-top:15px;font-size:10px;color:#666;">Design by Parv | Generated on ${new Date().toLocaleString()}</div>`;
         return html;
     }
     
@@ -466,7 +494,7 @@
     function exportFullScorecardPDF() { let element = document.getElementById('fullScorecardContent').cloneNode(true); html2pdf().from(element).set({ margin: 0.5, filename: 'full_scorecard.pdf' }).save(); }
     function exportFullScorecardHTML() { let content = document.getElementById('fullScorecardContent').innerHTML; let blob = new Blob([`<html><head><title>Full Scorecard</title><style>body{font-family:Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px;text-align:center}th{background:#667eea;color:white}</style></head><body>${content}</body></html>`], {type:'text/html'}); let link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'full_scorecard.html'; link.click(); }
     function exportPointTablePDF() { let element = document.getElementById('pointTable'); html2pdf().from(element).set({ margin: 0.5, filename: 'point_table.pdf' }).save(); }
-    function exportPointTableHTML() { let tableHtml = document.getElementById('pointTable').outerHTML; let blob = new Blob([`<html><head><title>Point Table</title><style>body{font-family:Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:10px;text-align:center}th{background:#10b981;color:white}</style></head><body><h1>Point Table</h1>${tableHtml}<p>Generated on ${new Date().toLocaleString()}</p></body></html>`], {type:'text/html'}); let link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'point_table.html'; link.click(); }
+    function exportPointTableHTML() { let tableHtml = document.getElementById('pointTable').outerHTML; let blob = new Blob([`<html><head><title>Point Table</title><style>body{font-family:Arial;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:10px;text-align:center}th{background:#10b981;color:white}</style></head><body><h1>Point Table</h1>${tableHtml}<p>Design by Parv | Generated on ${new Date().toLocaleString()}</p></body></html>`], {type:'text/html'}); let link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'point_table.html'; link.click(); }
 
     // Player Management
     function renderPlayerLists() {
@@ -554,7 +582,6 @@
         }
         document.getElementById('battingBody').innerHTML = battingHtml;
         
-        // Use aggregated bowlers to avoid duplicates
         let bowlingHtml = '';
         let allBowlers = match.getAggregatedBowlers();
         for (let b of allBowlers) {
