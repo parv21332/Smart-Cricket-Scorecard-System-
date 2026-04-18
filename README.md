@@ -4,7 +4,6 @@
 
 * 🏏 Match Setup  – Create match, teams, and overs
 * 📊 Live Scoring – Ball-by-ball score updates
-* 👥 Player Stats – Track batsman & bowler performance
 * 🔢 Extras Support – No Ball, Wide, Byes, Leg Byes
 * 💥 Free Hit System – Auto after no ball
 * 🔄 Strike Rotation – Automatic batsman switching
